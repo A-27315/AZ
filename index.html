@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0,  user-scalable=no, viewport-fit=cover">
+  <title>智能安防 · 监控助手</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    :root {
+      --bg: #1a1a24; --card: #242430; --accent-red: #e74c3c; --accent-green: #2ecc71;
+      --accent-yellow: #f39c12; --text: #f0f0f5; --text2: #a0a0b0; --border: #3a3a4a; --bar-bg: #2e2e3a;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: 'Inter', sans-serif; background: radial-gradient(circle at 30% 20%, #2a1e2e, #16121c); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px; }
+    .phone { max-width:420px; width:100%; background:var(--bg); border-radius:44px; padding:18px 16px 24px; box-shadow:0 20px 45px rgba(0,0,0,0.7); border:1px solid #4a3e5a; color:var(--text); }
+    .status-bar { display:flex; justify-content:space-between; align-items:center; background:#25243a; border-radius:30px; padding:8px 16px; margin-bottom:16px; font-weight:500; font-size:0.8rem; }
+    .bt-area { display:flex; align-items:center; gap:8px; }
+    .led { width:11px; height:11px; background:#5a5a7a; border-radius:50%; }
+    .led.active { background:#2ecc71; box-shadow:0 0 14px #2ecc71; animation:pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:0.6;transform:scale(1);} 50%{opacity:1;transform:scale(1.15);} }
+    .clock { font-family:monospace; font-weight:600; }
+    .btn {
+      background:#3a3a50; border:none; padding:8px 14px; border-radius:2rem; font-weight:600; font-size:0.7rem; color:#fff;
+      cursor:pointer; display:inline-flex; align-items:center; gap:5px; border:1px solid #5a5a76; transition:0.15s; white-space:nowrap;
+      user-select: none;
+    }
+    .btn:active { transform:scale(0.95); background:#52526a; }
+    .btn-danger { background:#a03a2a; border-color:#c04a3a; }
+    .btn-send { background:#1a5c3a; border-color:#2e8b5a; }
+    .config-panel { display:none; background:#25243a; border-radius:18px; padding:12px; margin-bottom:14px; border:1px solid #4a3e5a; flex-direction:column; gap:8px; }
+    .config-panel input { background:#1a1a24; border:1px solid #4a3e5a; color:#fff; padding:6px 10px; border-radius:16px; font-family:monospace; font-size:0.65rem; flex:1; outline:none; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+
+    .sensor-card { background:var(--card); border-radius:22px; padding:14px; margin-bottom:14px; border:1px solid var(--border); display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .vib-value { font-size:2.4rem; font-weight:800; color:#f5b042; }
+    .vib-bar-bg { width:100%; height:10px; background:var(--bar-bg); border-radius:8px; margin:8px 0; overflow:hidden; }
+    .vib-bar-fill { height:100%; width:0%; background:linear-gradient(90deg,#f1c40f,#e67e22,#e74c3c); border-radius:8px; transition:width 0.3s; }
+    .ir-led { width:40px; height:40px; border-radius:50%; background:#3a3a4a; box-shadow:0 0 10px transparent; transition:0.3s; }
+    .ir-led.active { background:#e74c3c; box-shadow:0 0 20px #e74c3c,0 0 40px rgba(231,76,60,0.6); }
+    .ir-label { margin-top:6px; font-size:0.7rem; color:var(--text2); }
+
+    .threshold-panel { background:var(--card); border-radius:18px; padding:12px; margin-bottom:14px; border:1px solid var(--border); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .threshold-input { width:70px; background:#1a1a24; border:1px solid #4a3e5a; color:#fff; padding:6px; border-radius:12px; text-align:center; font-weight:600; }
+
+    .cmd-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+    .cmd-btn {
+      background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 12px;
+      font-size: 0.8rem; font-weight: 700; color: var(--text); cursor: pointer; display: flex;
+      flex-direction: column; align-items: center; gap: 6px; position: relative; transition: 0.15s;
+    }
+    .cmd-btn:active { background: #3a3a5a; transform: scale(0.96); }
+    .cmd-btn .cmd-letter { font-size: 1.2rem; color: var(--accent-yellow); }
+    .cmd-btn .edit-icon {
+      position: absolute; top: 8px; right: 8px; font-size: 0.6rem; color: var(--text2); cursor: pointer; opacity: 0.5;
+    }
+    .cmd-btn .edit-icon:hover { opacity: 1; }
+
+    .log-box { background:#12121e; border-radius:16px; padding:10px; height:110px; overflow-y:auto; font-family:monospace; font-size:0.65rem; color:#b0b0c0; border:1px solid #2e2e42; margin-top:10px; }
+
+    .alert-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; z-index:100; backdrop-filter:blur(6px); }
+    .alert-box { background:#2c1e1e; border:2px solid #e74c3c; border-radius:24px; padding:20px; text-align:center; max-width:300px; color:#fff; box-shadow:0 0 30px rgba(231,76,60,0.8); animation:shakeAlert 0.5s; }
+    @keyframes shakeAlert { 0%,100%{transform:translate(0);} 25%{transform:translate(-5px,0);} 75%{transform:translate(5px,0);} }
+    .alert-box button { margin-top:12px; }
+  </style>
+</head>
+<body>
+<div class="phone">
+  <div class="status-bar">
+    <div class="bt-area">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div class="led" id="bleLed"></div>
+        <span id="btStatus">蓝牙: 未连接</span>
+        <div class="led" id="tcpLed" style="margin-left: 0; margin-right: 4px;"></div>
+        <span id="tcpStatus">云: 未连接</span>
+      </div>
+      <button class="btn" id="configToggleBtn"><i class="fas fa-cog"></i></button>
+    </div>
+    <div class="clock" id="liveClock">--:--:--</div>
+  </div>
+
+  <div class="config-panel" id="configPanel">
+    <div class="row">
+      <input id="serviceUuid" value="0000fff0-0000-1000-8000-00805f9b34fb" placeholder="服务UUID">
+      <input id="notifyUuid" value="0000fff1-0000-1000-8000-00805f9b34fb" placeholder="通知UUID">
+      <input id="writeUuid" value="0000fff1-0000-1000-8000-00805f9b34fb" placeholder="写入UUID">
+    </div>
+    <div class="row">
+      <button class="btn" id="scanBtn">扫描</button>
+      <button class="btn" id="connectBtn" disabled>连接蓝牙</button>
+      <button class="btn btn-danger" id="disconnectBtn" disabled>断开蓝牙</button>
+      <button class="btn" id="simulateBtn"><i class="fas fa-random"></i> 模拟数据</button>
+    </div>
+
+    <!-- TCP配置区域 -->
+    <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #4a3e5a;">
+      <div style="font-weight: 600; font-size: 0.7rem; margin-bottom: 6px; color: var(--text2);">🌐 巴法云连接</div>
+      <div style="font-size: 0.6rem; color: var(--text2); margin-bottom: 6px;">使用 Bemfa 云 API（GET/POST）</div>
+      <div class="row">
+        <input id="bemfaUid" placeholder="UID">
+        <input id="bemfaTopic" placeholder="Topic">
+        <button class="btn" id="tcpConnectBtn">连接云</button>
+        <button class="btn btn-danger" id="tcpDisconnectBtn" disabled>断开</button>
+        <div class="led" id="tcpLedConfig" style="margin-left: 8px;"></div>
+      </div>
+      <div style="font-size: 0.6rem; color: var(--text2); margin-top: 6px;">
+        Bemfa 云: 使用 Bemfa GET/POST 接口
+      </div>
+    </div>
+  </div>
+
+  <!-- TCP状态显示 -->
+  <div class="sensor-card">
+    <div style="grid-column: 1 / -1; text-align: center; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+      <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">📡 连接状态</div>
+      <div style="display: flex; justify-content: space-around; align-items: center;">
+        <div>
+          <div style="font-size: 0.7rem; color: var(--text2);">蓝牙</div>
+          <div style="font-size: 0.9rem; font-weight: 700;" id="btStatusText">未连接</div>
+        </div>
+        <div style="width: 1px; height: 30px; background: var(--border);"></div>
+        <div>
+          <div style="font-size: 0.7rem; color: var(--text2);">云</div>
+          <div style="font-size: 0.9rem; font-weight: 700;" id="tcpStatusText">未连接</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sensor-card">
+    <div class="vibration-box">
+      <span style="font-size:0.7rem; color:var(--text2);">📳 震动量</span>
+      <span class="vib-value" id="vibrationVal">0.0</span>
+      <div class="vib-bar-bg"><div class="vib-bar-fill" id="vibBar" style="width:0%"></div></div>
+    </div>
+    <div class="ir-box">
+      <div class="ir-led" id="irLed"></div>
+      <span class="ir-label" id="irLabel">红外：未触发</span>
+    </div>
+  </div>
+
+  <div class="threshold-panel">
+    <span style="font-weight:600; font-size:0.8rem;">⚙️ 震动阈值</span>
+    <input type="number" id="thresholdInput" class="threshold-input" value="5.0" step="0.1" min="0">
+    <span style="font-size:0.65rem; color:var(--text2);">超过时报警</span>
+    <button class="btn" id="testAlertBtn"><i class="fas fa-bell"></i> 测试震动报警</button>
+  </div>
+
+  <!-- 自定义按键下发区 -->
+  <div style="margin-bottom:14px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span style="font-weight:600; font-size:0.8rem;">🎛️ 快捷指令 (点击发送对应字母)</span>
+      <button class="btn" id="resetCmdBtn" style="font-size:0.6rem;"><i class="fas fa-undo"></i> 重置默认</button>
+    </div>
+    <div class="cmd-grid" id="cmdGrid"></div>
+  </div>
+
+  <div class="log-box" id="logBox"><div>🔔 智能安防助手就绪</div></div>
+</div>
+
+<!-- 震动超标弹窗 -->
+<div class="alert-overlay" id="vibrationAlert">
+  <div class="alert-box">
+    <div style="font-size:2rem;">📳</div>
+    <div style="font-weight:800; font-size:1.2rem; margin:8px 0;" id="vibAlertTitle">震动超标！</div>
+    <div id="vibAlertMsg" style="font-size:0.8rem;">请检查现场情况</div>
+    <button class="btn btn-danger" id="closeVibAlertBtn">确认并关闭</button>
+  </div>
+</div>
+
+<!-- 红外触发弹窗 -->
+<div class="alert-overlay" id="irAlert">
+  <div class="alert-box">
+    <div style="font-size:2rem;">🚶</div>
+    <div style="font-weight:800; font-size:1.2rem; margin:8px 0;">有人靠近！</div>
+    <div id="irAlertMsg" style="font-size:0.8rem;">红外传感器被触发，请检查</div>
+    <button class="btn btn-danger" id="closeIrAlertBtn">确认并关闭</button>
+  </div>
+</div>
+
+<script>
+  (() => {
+    // DOM
+    const bleLed = document.getElementById('bleLed');
+    const btStatus = document.getElementById('btStatus');
+    const connStatus = document.getElementById('connStatus');
+    const configToggleBtn = document.getElementById('configToggleBtn');
+    const configPanel = document.getElementById('configPanel');
+    const scanBtn = document.getElementById('scanBtn');
+    const connectBtn = document.getElementById('connectBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    const simulateBtn = document.getElementById('simulateBtn');
+    const serviceUuidInput = document.getElementById('serviceUuid');
+    const notifyUuidInput = document.getElementById('notifyUuid');
+    const writeUuidInput = document.getElementById('writeUuid');
+    const vibrationValSpan = document.getElementById('vibrationVal');
+    const vibBar = document.getElementById('vibBar');
+    const irLed = document.getElementById('irLed');
+    const irLabel = document.getElementById('irLabel');
+    const thresholdInput = document.getElementById('thresholdInput');
+    const testAlertBtn = document.getElementById('testAlertBtn');
+    const logBox = document.getElementById('logBox');
+    const clockSpan = document.getElementById('liveClock');
+    const vibrationAlert = document.getElementById('vibrationAlert');
+    const vibAlertMsg = document.getElementById('vibAlertMsg');
+    const closeVibAlertBtn = document.getElementById('closeVibAlertBtn');
+    const irAlert = document.getElementById('irAlert');
+    const closeIrAlertBtn = document.getElementById('closeIrAlertBtn');
+    const cmdGrid = document.getElementById('cmdGrid');
+    const resetCmdBtn = document.getElementById('resetCmdBtn');
+
+    // 云服务相关DOM (Bemfa)
+    const tcpLed = document.getElementById('tcpLed');
+    const tcpLedConfig = document.getElementById('tcpLedConfig');
+    const tcpStatus = document.getElementById('tcpStatus');
+    const bemfaUid = document.getElementById('bemfaUid');
+    const bemfaTopic = document.getElementById('bemfaTopic');
+    const tcpConnectBtn = document.getElementById('tcpConnectBtn');
+    const tcpDisconnectBtn = document.getElementById('tcpDisconnectBtn');
+    
+
+    let bluetoothDevice = null, gattServer = null, notifyChar = null, writeChar = null, isBtConnected = false;
+    let tcpSocket = null, tcpConnected = false, isWebSocket = false, tcpMonitorInterval = null, tcpHttpInterval = null;
+    // 音频上下文与解锁状态，用于播放报警音（在某些浏览器需要用户手势解锁）
+    let audioCtx = null, audioUnlocked = false;
+    // 语音队列，避免同时触发时被互相 cancel
+    let speechQueue = [];
+    let speechPlaying = false;
+    let lastIrState = 0; // 记录上次红外状态，用于边缘触发
+    let cmdNames = ['A','B','C','D','E','F']; // 默认按键名
+
+    // 加载自定义按键名
+    function loadCmdNames() {
+      try {
+        const saved = localStorage.getItem('security_cmds');
+        if (saved) cmdNames = JSON.parse(saved);
+        else cmdNames = ['命令A','命令B','命令C','命令D','命令E','命令F'];
+      } catch { cmdNames = ['A','B','C','D','E','F']; }
+      renderCmdButtons();
+    }
+    function saveCmdNames() {
+      localStorage.setItem('security_cmds', JSON.stringify(cmdNames));
+    }
+    function renderCmdButtons() {
+      cmdGrid.innerHTML = '';
+      const letters = ['A','B','C','D','E','F'];
+      letters.forEach((letter, i) => {
+        const btn = document.createElement('div');
+        btn.className = 'cmd-btn';
+        btn.innerHTML = `
+          <span class="cmd-letter">${letter}</span>
+          <span class="cmd-name" id="cmdName${i}">${cmdNames[i]}</span>
+          <i class="fas fa-pencil-alt edit-icon" data-index="${i}"></i>
+        `;
+        btn.addEventListener('click', (e) => {
+          if (e.target.classList.contains('edit-icon') || e.target.closest('.edit-icon')) return;
+          sendCommand(letter);
+        });
+        const editIcon = btn.querySelector('.edit-icon');
+        editIcon.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const newName = prompt(`修改按键 ${letter} 的名称：`, cmdNames[i]);
+          if (newName !== null && newName.trim() !== '') {
+            cmdNames[i] = newName.trim();
+            saveCmdNames();
+            document.getElementById(`cmdName${i}`).textContent = cmdNames[i];
+          }
+        });
+        cmdGrid.appendChild(btn);
+      });
+    }
+    resetCmdBtn.addEventListener('click', () => {
+      if (confirm('重置所有按键名称为默认？')) {
+        cmdNames = ['命令A','命令B','命令C','命令D','命令E','命令F'];
+        saveCmdNames();
+        renderCmdButtons();
+        addLog('按键名称已重置');
+      }
+    });
+
+    // 时钟
+    function updateClock() { clockSpan.textContent = new Date().toLocaleTimeString('zh-CN',{hour12:false}); }
+    setInterval(updateClock, 1000); updateClock();
+
+    function addLog(msg, type='info') {
+      const d = document.createElement('div');
+
+      // 根据类型设置颜色
+      if (type === 'rx') {
+        d.style.color = '#2ecc71'; // 接收数据为绿色
+      } else if (type === 'tx') {
+        d.style.color = '#3498db'; // 发送数据为蓝色
+      } else if (type === 'bt-rx') {
+        d.style.color = '#16a085'; // 蓝牙接收为青色
+      } else if (type === 'bt-tx') {
+        d.style.color = '#2980b9'; // 蓝牙发送为深蓝色
+      } else if (type === 'tcp-rx') {
+        d.style.color = '#27ae60'; // TCP接收为深绿色
+      } else if (type === 'tcp-tx') {
+        d.style.color = '#8e44ad'; // TCP发送为紫色
+      } else if (type === 'error') {
+        d.style.color = '#e74c3c'; // 错误为红色
+      } else if (type === 'debug') {
+        d.style.color = '#f39c12'; // 调试信息为黄色
+      } else {
+        d.style.color = '#b0b0c0'; // 默认为灰色
+      }
+
+      d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      logBox.appendChild(d); logBox.scrollTop = logBox.scrollHeight;
+      if(logBox.children.length > 30) logBox.removeChild(logBox.children[0]);
+    }
+
+    function updateConnectionUI(c) {
+      isBtConnected = c;
+      bleLed.classList.toggle('active', c);
+      btStatus.textContent = c?'蓝牙: 已连接':'蓝牙: 未连接';
+      connectBtn.disabled = c||!bluetoothDevice; disconnectBtn.disabled = !c; scanBtn.disabled = c;
+      updateAllConnectionStatus();
+    }
+
+    function updateTcpConnectionUI(c) {
+      tcpConnected = c;
+      tcpLed.classList.toggle('active', c);
+      if (tcpLedConfig) tcpLedConfig.classList.toggle('active', c);
+      tcpStatus.textContent = c? '云: 已连接' : '云: 未连接';
+      tcpConnectBtn.disabled = c;
+      tcpDisconnectBtn.disabled = !c;
+      updateAllConnectionStatus();
+    }
+
+    function updateAllConnectionStatus() {
+      // 更新底部传感器区域的显示
+      const btSensorText = document.getElementById('btStatusText');
+      const tcpSensorText = document.getElementById('tcpStatusText');
+
+      if (btSensorText) {
+        btSensorText.textContent = isBtConnected ? '已连接' : '未连接';
+      }
+      if (tcpSensorText) {
+        tcpSensorText.textContent = tcpConnected ? '已连接' : '未连接';
+      }
+    }
+
+    // 发送单个字母 - 同时发送到蓝牙和TCP
+    async function sendCommand(letter) {
+      // 蓝牙发送
+      if (isBtConnected && writeChar) {
+        try {
+          await writeChar.writeValue(new TextEncoder().encode(letter));
+          addLog(`📤 BT发送: ${letter} (${cmdNames[letter.charCodeAt(0)-65]})`, 'bt-tx');
+        } catch(e) { addLog(`BT发送失败: ${e.message}`, 'error'); }
+      }
+
+      // 云发送（Bemfa） — 不再依赖 tcpConnected，直接尝试发送并记录响应
+      try {
+        // Bemfa 要求的 msg 格式通常为 `${topic}:${value}\r\n`，并需要传入 type
+        const data = letter;
+        const uid = (bemfaUid && bemfaUid.value.trim()) || '';
+        const topic = (bemfaTopic && bemfaTopic.value.trim()) || '';
+        if (!uid || !topic) return addLog('缺少 UID/Topic，发送失败','error');
+        const sendUrl = 'https://apis.bemfa.com/va/postJsonMsg';
+        const body = { uid: uid, topic: topic, type: 3, msg: `${topic}:${data}\r\n` };
+        addLog(`准备发送到 Bemfa: ${sendUrl} body=${JSON.stringify(body)}`,'debug');
+        const resp = await fetch(sendUrl, {
+          method: 'POST',
+          mode: 'cors',
+          cache: 'no-store',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify(body)
+        });
+        let text = '';
+        try { text = await resp.text(); } catch(e) { text = ''+e.message; }
+        if (resp.ok) {
+          addLog(`📤 云发送成功: ${letter} (status ${resp.status})`,'tcp-tx');
+          if (text) addLog(`云返回: ${text}`,'tcp-rx');
+        } else {
+          addLog(`云发送失败: HTTP ${resp.status} ${resp.statusText}`,'error');
+          if (text) addLog(`云返回: ${text}`,'error');
+        }
+      } catch(e) {
+        // 常见原因包括网络错误或浏览器阻止（CORS）
+        addLog(`云发送异常: ${e.message}`,'error');
+        addLog('提示：若控制台出现 CORS 错误，请使用服务器代理或确认 Bemfa 是否允许跨域。','error');
+      }
+    }
+
+    // 传感器更新
+    function updateSensors(vibration, ir) {
+      vibrationValSpan.textContent = vibration.toFixed(1);
+      vibBar.style.width = Math.min(100, Math.max(0, (vibration/20)*100))+'%';
+      // 红外状态更新
+      if (ir === 1) {
+        irLed.classList.add('active');
+        irLabel.textContent = '红外：已触发';
+        irLabel.style.color = '#e74c3c';
+        if (lastIrState === 0) { // 触发边缘
+          triggerIrAlert();
+        }
+      } else {
+        irLed.classList.remove('active');
+        irLabel.textContent = '红外：未触发';
+        irLabel.style.color = '#a0a0b0';
+      }
+      lastIrState = ir;
+      // 震动阈值检查
+      const thresh = parseFloat(thresholdInput.value) || 5.0;
+      if (vibration > thresh) {
+        triggerVibrationAlert(vibration, thresh);
+      }
+    }
+
+    function triggerVibrationAlert(v, t) {
+      if (vibrationAlert.style.display === 'flex') return;
+      vibrationAlert.style.display = 'flex';
+      vibAlertMsg.textContent = `当前震动 ${v.toFixed(1)} > 阈值 ${t.toFixed(1)}，请立即检查。`;
+      speak('警告，震动超标');
+      addLog(`📳 震动报警: ${v.toFixed(1)} > ${t}`, 'rx');
+    }
+    function triggerIrAlert() {
+      if (irAlert.style.display === 'flex') return;
+      irAlert.style.display = 'flex';
+      speak('有人靠近');
+      addLog('🚶 红外报警：有人靠近', 'rx');
+    }
+
+    // 简短蜂鸣（WebAudio 回退）
+    function playBeep(freq = 1000, duration = 0.18) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'sine'; o.frequency.value = freq;
+        g.gain.value = 0.0001;
+        o.connect(g); g.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(0.2, now + 0.01);
+        o.start(now);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+        o.stop(now + duration + 0.02);
+      } catch (e) { /* 忽略播放失败 */ }
+    }
+
+    // 使用队列播报语音，避免互相 cancel
+    function playNextSpeech() {
+      if (speechPlaying) return;
+      if (!speechQueue.length) return;
+      const text = speechQueue.shift();
+      speechPlaying = true;
+      try {
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'zh-CN'; u.rate = 1.0;
+        u.onend = () => { speechPlaying = false; setTimeout(playNextSpeech, 60); };
+        u.onerror = () => { speechPlaying = false; setTimeout(playNextSpeech, 60); };
+        window.speechSynthesis.speak(u);
+      } catch (e) {
+        speechPlaying = false;
+        playBeep();
+        setTimeout(playNextSpeech, 60);
+      }
+    }
+
+    function speak(text) {
+      if ('speechSynthesis' in window) {
+        speechQueue.push(text);
+        playNextSpeech();
+      } else {
+        playBeep();
+      }
+    }
+
+    // 在第一次用户交互时解锁音频（许多浏览器要求先有用户手势）
+    function ensureAudioUnlocked() {
+      if (audioUnlocked) return;
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+        audioUnlocked = true;
+      } catch (e) { /* 无法创建 AudioContext */ }
+    }
+    document.addEventListener('click', ensureAudioUnlocked, {passive:true, once:true});
+    document.addEventListener('touchstart', ensureAudioUnlocked, {passive:true, once:true});
+
+    closeVibAlertBtn.onclick = ()=>{ vibrationAlert.style.display='none'; speechSynthesis.cancel(); };
+    closeIrAlertBtn.onclick = ()=>{ irAlert.style.display='none'; speechSynthesis.cancel(); };
+    testAlertBtn.onclick = ()=> triggerVibrationAlert(6, +thresholdInput.value||5);
+
+    function parseSensorData(raw) {
+      // 处理原始格式 #震动值#红外状态#
+      const originalFormat = raw.match(/#([\d.]+)#(\d)#/);
+      if (originalFormat) {
+        updateSensors(+originalFormat[1], +originalFormat[2]);
+        addLog(`📥 原始数据: 震动:${originalFormat[1]} 红外:${originalFormat[2]}`, 'rx');
+        return true;
+      }
+
+      // 处理JSON格式
+      try {
+        const jsonData = JSON.parse(raw);
+        if (jsonData.vibration !== undefined && jsonData.infrared !== undefined) {
+          updateSensors(jsonData.vibration, jsonData.infrared);
+          addLog(`📥 JSON数据: 震动:${jsonData.vibration} 红外:${jsonData.infrared}`, 'rx');
+          return true;
+        }
+      } catch(e) {}
+
+      // 处理TCP指令格式 CMD:字母
+      const cmdFormat = raw.match(/^CMD:(\w)$/);
+      if (cmdFormat) {
+        addLog(`📥 TCP指令: ${cmdFormat[1]}`, 'rx');
+        return true;
+      }
+
+      return false;
+    }
+
+    function onNotification(e) {
+      const v = e.target.value; if(!v) return;
+      parseSensorData(new TextDecoder('utf-8').decode(v).trim());
+      addLog(`📥 BT接收数据`, 'bt-rx');
+    }
+
+    // 蓝牙操作
+    async function scan() {
+      if (!navigator.bluetooth) { alert('需要 Web Bluetooth'); return; }
+      const svc = serviceUuidInput.value.trim(); if (!svc) return alert('输入UUID');
+      try {
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [{ services: [svc] }], optionalServices: [svc]
+        });
+        bluetoothDevice = device; connectBtn.disabled = false;
+        addLog(`已选择: ${device.name || device.id}`);
+      } catch(e) { if(!e.message.includes('cancelled')) addLog(`扫描错误: ${e.message}`); }
+    }
+
+    async function connect() {
+      if (!bluetoothDevice) return;
+      const svc = serviceUuidInput.value.trim(), ntf = notifyUuidInput.value.trim(), wrt = writeUuidInput.value.trim();
+      try {
+        gattServer = await bluetoothDevice.gatt.connect();
+        const service = await gattServer.getPrimaryService(svc);
+        notifyChar = await service.getCharacteristic(ntf);
+        await notifyChar.startNotifications();
+        notifyChar.addEventListener('characteristicvaluechanged', onNotification);
+        if (wrt) { try { writeChar = await service.getCharacteristic(wrt); } catch(e) {} }
+        updateConnectionUI(true);
+        bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnect);
+        addLog('✅ 蓝牙已连接');
+      } catch(e) { addLog(`连接失败: ${e.message}`); updateConnectionUI(false); }
+    }
+
+    function onDisconnect() {
+      addLog('设备断开');
+      if (notifyChar) notifyChar.removeEventListener('characteristicvaluechanged', onNotification);
+      notifyChar = writeChar = null;
+      updateConnectionUI(false);
+    }
+
+    function disconnect() {
+      if (bluetoothDevice && bluetoothDevice.gatt.connected) bluetoothDevice.gatt.disconnect();
+      else onDisconnect();
+    }
+
+    // TCP连接功能
+    async function connectTCP() {
+      // 使用 Bemfa 云接口进行轮询：getUrl 获取消息，postJsonMsg 发送消息
+      const uid = (bemfaUid && bemfaUid.value.trim()) || '';
+      const topic = (bemfaTopic && bemfaTopic.value.trim()) || '';
+      if (!uid || !topic) { addLog('请输入 UID 和 Topic', 'error'); return; }
+      const getUrl = `https://apis.bemfa.com/va/getmsg?uid=${encodeURIComponent(uid)}&topic=${encodeURIComponent(topic)}&type=3`;
+      addLog(`开始连接 Bemfa 云轮询: ${getUrl}`,'debug');
+      try {
+        // 先尝试一次请求
+        const resp = await fetch(getUrl, { cache: 'no-store' });
+        const txt = await resp.text();
+        // 解析并展示
+        try {
+          const j = JSON.parse(txt);
+          // 兼容返回数组或对象
+          let payload = '';
+          if (Array.isArray(j) && j.length>0) {
+            // 取最后一条
+            payload = j[j.length-1].msg || j[j.length-1].data || JSON.stringify(j[j.length-1]);
+          } else if (j && j.msg) payload = j.msg;
+          else payload = txt;
+          if (payload) parseSensorData(payload.toString().trim());
+        } catch(e) {
+          if (txt && txt.trim()) parseSensorData(txt.trim());
+        }
+        updateTcpConnectionUI(true); tcpConnected = true;
+        if (tcpHttpInterval) clearInterval(tcpHttpInterval);
+        tcpHttpInterval = setInterval(async ()=>{
+          try {
+            const r = await fetch(getUrl + '&t=' + Date.now(), { cache: 'no-store' });
+            const t = await r.text();
+            if (!t) return;
+            try {
+              const j = JSON.parse(t);
+              if (Array.isArray(j) && j.length>0) {
+                const payload = j[j.length-1].msg || j[j.length-1].data || JSON.stringify(j[j.length-1]);
+                if (payload) parseSensorData(payload.toString().trim());
+              } else if (j && j.msg) parseSensorData(j.msg.toString().trim());
+              else parseSensorData(t.trim());
+            } catch(e) { parseSensorData(t.trim()); }
+          } catch(e) { addLog('Bemfa 轮询错误: '+e.message,'error'); }
+        }, 1000);
+      } catch(e) { addLog('连接 Bemfa 失败: '+e.message,'error'); updateTcpConnectionUI(false); }
+    }
+
+    function disconnectTCP() {
+      if (tcpSocket) {
+        if (isWebSocket) {
+          tcpSocket.close();
+        } else if (tcpSocket.disconnect) {
+          tcpSocket.disconnect();
+        }
+        tcpSocket = null;
+      }
+      if (tcpMonitorInterval) { clearInterval(tcpMonitorInterval); tcpMonitorInterval = null; }
+      if (tcpHttpInterval) { clearInterval(tcpHttpInterval); tcpHttpInterval = null; }
+      updateTcpConnectionUI(false);
+    }
+
+    function startTcpMonitor() {
+      if (tcpMonitorInterval) clearInterval(tcpMonitorInterval);
+      tcpMonitorInterval = setInterval(() => {
+        try {
+          if (tcpSocket && tcpSocket.readyState === WebSocket.OPEN) {
+            if (!tcpConnected) {
+              addLog('🔎 监控器检测到 TCP readyState=OPEN', 'debug');
+              updateTcpConnectionUI(true);
+            }
+          } else {
+            if (tcpConnected && (!tcpSocket || tcpSocket.readyState !== WebSocket.OPEN)) {
+              addLog('🔎 监控器检测到 TCP 未打开', 'debug');
+              updateTcpConnectionUI(false);
+            }
+          }
+        } catch (e) { /* ignore */ }
+      }, 500);
+    }
+
+    
+
+    function simulateData() {
+      const vibration = (Math.random() * 8).toFixed(1);
+      const ir = Math.random() < 0.4 ? 1 : 0;
+      parseSensorData(`#${vibration}#${ir}#`);
+    }
+
+    configToggleBtn.onclick = () => configPanel.style.display = configPanel.style.display === 'none' ? 'flex' : 'none';
+    scanBtn.onclick = scan;
+    connectBtn.onclick = connect;
+    disconnectBtn.onclick = disconnect;
+    simulateBtn.onclick = simulateData;
+
+    // TCP事件绑定
+    tcpConnectBtn.onclick = connectTCP;
+    tcpDisconnectBtn.onclick = disconnectTCP;
+
+    // 初始化
+    loadCmdNames();
+    updateConnectionUI(false);
+    updateTcpConnectionUI(false);
+    updateSensors(0, 0);
+    addLog('智能安防就绪 | 红外触发播报”有人靠近”');
+    addLog('支持蓝牙和Bemfa云连接', 'debug');
+    addLog('使用 Bemfa 云 API 进行轮询与发送', 'debug');
+    addLog('Bemfa: 使用远端 Bemfa 云，无需本地 WebSocket 服务器', 'debug');
+  })();
+</script>
+</body>
+</html>
